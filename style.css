@@ -1,0 +1,113 @@
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #0b0c10;
+  color: #e9eef5;
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0;
+  margin-right: auto;
+}
+
+button {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #2b2f3a;
+  background: #141824;
+  color: #e9eef5;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 860px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  border: 1px solid #232838;
+  background: #101422;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.card h2, .card h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+}
+
+canvas {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 12px;
+  border: 1px solid #232838;
+  background: #070912;
+}
+
+.hint {
+  margin: 10px 0 0 0;
+  opacity: 0.8;
+  font-size: 12px;
+}
+
+.resultRow {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 0;
+}
+
+.resultRow.stable .value {
+  font-weight: 800;
+}
+
+.label {
+  opacity: 0.75;
+}
+
+.value {
+  font-size: 16px;
+}
+
+.value.small {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.labels > div {
+  padding: 6px 0;
+  border-bottom: 1px dashed #232838;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
