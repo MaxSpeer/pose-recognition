@@ -1,0 +1,13 @@
+{
+  "name": "tm-pose-webcam",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Teachable Machine Pose model + webcam demo",
+  "scripts": {
+    "dev": "http-server -p 8080 -c-1",
+    "start": "http-server -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
