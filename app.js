@@ -20,7 +20,7 @@ const stableRuleEl = document.getElementById("stableRule");
 labelContainer = document.getElementById("label-container");
 
 // --- Stable-class settings ---
-const STABLE_SECONDS = 2.0;      // must persist this long
+const STABLE_SECONDS = 8.0;      // must persist this long
 const PROB_THRESHOLD = 0.85;     // "valid" if >= this confidence
 const TOPK = 1;                  // use top-1 class
 
