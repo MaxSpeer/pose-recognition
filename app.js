@@ -33,8 +33,50 @@ let candidateLabel = null;
 let candidateSinceMs = 0;
 
 // Buttons
-startBtn.addEventListener("click", init);
-stopBtn.addEventListener("click", stop);
+startBtn.addEventListener("click", () => {
+//   playAudioForClass("test"); // Audio erst nach User-Interaktion
+  init();
+});
+stopBtn.addEventListener("click", () => {
+  audioPlayer.pause();
+  audioPlayer.currentTime = 0;
+  stop();
+});
+
+
+// --- Audio setup ---
+const AUDIO_MAP = {
+  "Oben": "./audio/class3.mp3",
+//   "Rechts": "./audio/class3.mp3",
+//   "test": "./audio/test.mp3",
+  // später einfach ergänzen:
+  // "Class 1": "./audio/class1.mp3",
+  // "Class 2": "./audio/class2.mp3",
+};
+
+const audioPlayer = new Audio();
+audioPlayer.preload = "auto";
+
+let lastPlayedClass = null;
+
+function playAudioForClass(className) {
+  const src = AUDIO_MAP[className];
+  if (!src) return; // keine Tonspur für diese Klasse
+
+  // nicht neu starten, wenn die gleiche Klasse schon läuft
+  if (lastPlayedClass === className && !audioPlayer.paused) return;
+
+  lastPlayedClass = className;
+  audioPlayer.src = src;
+  audioPlayer.currentTime = 0;
+
+  // autoplay restrictions: klappt zuverlässig, wenn Start per Button erfolgt
+  audioPlayer.play().catch((err) => {
+    console.warn("Audio konnte nicht abgespielt werden (Autoplay/Permission):", err);
+  });
+}
+
+// playAudioForClass("test"); // initialer Aufruf entfernt, Autoplay-Block
 
 async function init() {
   if (running) return;
@@ -172,6 +214,7 @@ function updateStableClass(className, prob, nowMs) {
   if (heldForMs >= STABLE_SECONDS * 1000 && stableLabel !== className) {
     stableLabel = className;
     stableClassEl.textContent = stableLabel;
+    playAudioForClass(stableLabel);
   }
 }
 
