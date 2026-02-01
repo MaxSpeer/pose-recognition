@@ -46,7 +46,7 @@ stopBtn.addEventListener("click", () => {
 
 // --- Audio setup ---
 const AUDIO_MAP = {
-  "Oben": "./audio/class3.mp3",
+  "Oben": "./audio/oben.mp3",
 //   "Rechts": "./audio/class3.mp3",
 //   "test": "./audio/test.mp3",
   // später einfach ergänzen:
