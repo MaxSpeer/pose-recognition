@@ -67,6 +67,8 @@ let sequenceIndex = 0;
 let audioPlaying = false;
 let waitingForPose = false;
 let poseTimeoutId = null;
+let poseTimeoutDeadlineMs = null;
+let poseCountdownTimerId = null;
 let audioUiTimerId = null;
 
 const BASE_POSE_TIMEOUT_MS = 15000; // 15s Timeout
@@ -136,9 +138,11 @@ audioPlayer.addEventListener("ended", () => {
   renderNextExpectedPose();
   // Start timeout for next pose
   if (poseTimeoutId) clearTimeout(poseTimeoutId);
+  poseTimeoutDeadlineMs = performance.now() + getPoseTimeoutMs();
   poseTimeoutId = setTimeout(() => {
     resetSequence();
   }, getPoseTimeoutMs());
+  startPoseCountdownTimer();
 });
 
 function getNextExpectedPoseText() {
@@ -147,7 +151,24 @@ function getNextExpectedPoseText() {
 }
 
 function renderNextExpectedPose() {
-  nextPoseEl.textContent = getNextExpectedPoseText();
+  const base = getNextExpectedPoseText();
+  if (waitingForPose && poseTimeoutDeadlineMs) {
+    const remainingMs = Math.max(0, poseTimeoutDeadlineMs - performance.now());
+    nextPoseEl.textContent = `${base} (Timeout in ${formatSeconds(remainingMs / 1000)})`;
+  } else {
+    nextPoseEl.textContent = base;
+  }
+}
+
+function clearPoseCountdownTimer() {
+  if (!poseCountdownTimerId) return;
+  clearInterval(poseCountdownTimerId);
+  poseCountdownTimerId = null;
+}
+
+function startPoseCountdownTimer() {
+  clearPoseCountdownTimer();
+  poseCountdownTimerId = setInterval(renderNextExpectedPose, 200);
 }
 
 function resetSequence() {
@@ -158,6 +179,9 @@ function resetSequence() {
   stableClassEl.textContent = stableLabel;
   renderNextExpectedPose();
   if (poseTimeoutId) clearTimeout(poseTimeoutId);
+  poseTimeoutId = null;
+  poseTimeoutDeadlineMs = null;
+  clearPoseCountdownTimer();
 }
 
 // Buttons
@@ -258,6 +282,7 @@ function stop() {
   audioPlaying = false;
   waitingForPose = false;
   clearAudioUiTimer();
+  clearPoseCountdownTimer();
   updateAudioPlaybackUi();
 
   startBtn.disabled = false;
@@ -359,15 +384,14 @@ function updateStableClass(className, prob, nowMs) {
     stableClassEl.textContent = stableLabel;
     waitingForPose = false;
     if (poseTimeoutId) clearTimeout(poseTimeoutId);
-    // Nächste Audio in Sequenz
+    poseTimeoutId = null;
+    poseTimeoutDeadlineMs = null;
+    clearPoseCountdownTimer();
+    // Spiele die Audio zur erkannten Pose (nicht zur nächsten)
+    playAudioForClass(className);
+    // Danach zur nächsten erwarteten Pose wechseln
     sequenceIndex++;
     renderNextExpectedPose();
-    if (sequenceIndex < POSE_SEQUENCE.length) {
-      playAudioForClass(POSE_SEQUENCE[sequenceIndex]);
-    } else {
-      // Sequenz beendet, zurücksetzen
-      resetSequence();
-    }
   }
 }
 
