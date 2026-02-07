@@ -17,20 +17,148 @@ const liveClassEl = document.getElementById("liveClass");
 const liveConfEl = document.getElementById("liveConf");
 const stableClassEl = document.getElementById("stableClass");
 const stableRuleEl = document.getElementById("stableRule");
+const nextPoseEl = document.getElementById("nextPose");
+const currentAudioEl = document.getElementById("currentAudio");
+const audioRemainingEl = document.getElementById("audioRemaining");
+const speedSlowBtn = document.getElementById("speedSlowBtn");
+const speedNormalBtn = document.getElementById("speedNormalBtn");
+const speedFastBtn = document.getElementById("speedFastBtn");
+const speedSuperFastBtn = document.getElementById("speedSuperFastBtn");
+const speedStatusEl = document.getElementById("speedStatus");
 labelContainer = document.getElementById("label-container");
 
 // --- Stable-class settings ---
-const STABLE_SECONDS = 8.0;      // must persist this long
+const BASE_STABLE_SECONDS = 5.0; // must persist this long
 const PROB_THRESHOLD = 0.85;     // "valid" if >= this confidence
 const TOPK = 1;                  // use top-1 class
+let speedMultiplier = 1.0;
 
-stableRuleEl.textContent =
-  `Updates when top-${TOPK} class stays ≥ ${PROB_THRESHOLD} for ${STABLE_SECONDS.toFixed(1)}s`;
+function getStableSeconds() {
+  return BASE_STABLE_SECONDS / speedMultiplier;
+}
+
+function renderStableRule() {
+  stableRuleEl.textContent =
+    `Updates when top-${TOPK} class stays ≥ ${PROB_THRESHOLD} for ${getStableSeconds().toFixed(1)}s`;
+}
+
+function renderSpeedStatus() {
+  speedStatusEl.textContent = `${speedMultiplier.toFixed(1)}x`;
+}
+
+function applySpeed(multiplier) {
+  speedMultiplier = multiplier;
+  audioPlayer.playbackRate = speedMultiplier;
+  renderStableRule();
+  renderSpeedStatus();
+}
+
+renderStableRule();
+renderSpeedStatus();
 
 // Stable state
 let stableLabel = "—";
 let candidateLabel = null;
 let candidateSinceMs = 0;
+
+// Audio sequence logic
+const POSE_SEQUENCE = ["Oben", "Links", "Rechts"];
+let sequenceIndex = 0;
+let audioPlaying = false;
+let waitingForPose = false;
+let poseTimeoutId = null;
+let audioUiTimerId = null;
+
+const BASE_POSE_TIMEOUT_MS = 15000; // 15s Timeout
+
+function getPoseTimeoutMs() {
+  return BASE_POSE_TIMEOUT_MS / speedMultiplier;
+}
+
+// --- Audio setup ---
+const AUDIO_MAP = {
+  "Oben": "./audio/oben.mp3",
+  "Links": "./audio/links.mp3",
+  "Rechts": "./audio/rechts.mp3",
+};
+
+const audioPlayer = new Audio();
+audioPlayer.preload = "auto";
+
+function formatSeconds(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  return `${seconds.toFixed(1)} s`;
+}
+
+function getFileNameFromSrc(src) {
+  if (!src) return "—";
+  try {
+    const url = new URL(src, window.location.href);
+    return url.pathname.split("/").pop() || src;
+  } catch {
+    return src;
+  }
+}
+
+function clearAudioUiTimer() {
+  if (!audioUiTimerId) return;
+  clearInterval(audioUiTimerId);
+  audioUiTimerId = null;
+}
+
+function updateAudioPlaybackUi() {
+  if (!audioPlaying) {
+    currentAudioEl.textContent = "—";
+    audioRemainingEl.textContent = "—";
+    return;
+  }
+
+  currentAudioEl.textContent = getFileNameFromSrc(audioPlayer.currentSrc || audioPlayer.src);
+  if (!Number.isFinite(audioPlayer.duration)) {
+    audioRemainingEl.textContent = "loading...";
+    return;
+  }
+
+  const remaining = Math.max(0, audioPlayer.duration - audioPlayer.currentTime);
+  audioRemainingEl.textContent = formatSeconds(remaining);
+}
+
+function startAudioUiTimer() {
+  clearAudioUiTimer();
+  audioUiTimerId = setInterval(updateAudioPlaybackUi, 200);
+}
+
+audioPlayer.addEventListener("ended", () => {
+  audioPlaying = false;
+  clearAudioUiTimer();
+  updateAudioPlaybackUi();
+  waitingForPose = true;
+  renderNextExpectedPose();
+  // Start timeout for next pose
+  if (poseTimeoutId) clearTimeout(poseTimeoutId);
+  poseTimeoutId = setTimeout(() => {
+    resetSequence();
+  }, getPoseTimeoutMs());
+});
+
+function getNextExpectedPoseText() {
+  if (!running || sequenceIndex >= POSE_SEQUENCE.length) return "—";
+  return POSE_SEQUENCE[sequenceIndex];
+}
+
+function renderNextExpectedPose() {
+  nextPoseEl.textContent = getNextExpectedPoseText();
+}
+
+function resetSequence() {
+  sequenceIndex = 0;
+  waitingForPose = running;
+  audioPlaying = false;
+  stableLabel = "—";
+  stableClassEl.textContent = stableLabel;
+  renderNextExpectedPose();
+  if (poseTimeoutId) clearTimeout(poseTimeoutId);
+}
 
 // Buttons
 startBtn.addEventListener("click", () => {
@@ -42,37 +170,37 @@ stopBtn.addEventListener("click", () => {
   audioPlayer.currentTime = 0;
   stop();
 });
-
-
-// --- Audio setup ---
-const AUDIO_MAP = {
-  "Oben": "./audio/oben.mp3",
-//   "Rechts": "./audio/class3.mp3",
-//   "test": "./audio/test.mp3",
-  // später einfach ergänzen:
-  // "Class 1": "./audio/class1.mp3",
-  // "Class 2": "./audio/class2.mp3",
-};
-
-const audioPlayer = new Audio();
-audioPlayer.preload = "auto";
+speedSlowBtn.addEventListener("click", () => applySpeed(0.8));
+speedNormalBtn.addEventListener("click", () => applySpeed(1.0));
+speedFastBtn.addEventListener("click", () => applySpeed(1.3));
+speedSuperFastBtn.addEventListener("click", () => applySpeed(3.0));
 
 let lastPlayedClass = null;
 
 function playAudioForClass(className) {
   const src = AUDIO_MAP[className];
-  if (!src) return; // keine Tonspur für diese Klasse
-
-  // nicht neu starten, wenn die gleiche Klasse schon läuft
-  if (lastPlayedClass === className && !audioPlayer.paused) return;
-
+  if (!src) {
+    // Fallback: if no audio file exists, still allow pose matching to continue.
+    waitingForPose = true;
+    audioPlaying = false;
+    clearAudioUiTimer();
+    updateAudioPlaybackUi();
+    return;
+  }
+  if (audioPlaying) return;
   lastPlayedClass = className;
   audioPlayer.src = src;
   audioPlayer.currentTime = 0;
-
-  // autoplay restrictions: klappt zuverlässig, wenn Start per Button erfolgt
+  audioPlayer.playbackRate = speedMultiplier;
+  audioPlaying = true;
+  waitingForPose = false;
+  updateAudioPlaybackUi();
+  startAudioUiTimer();
   audioPlayer.play().catch((err) => {
     console.warn("Audio konnte nicht abgespielt werden (Autoplay/Permission):", err);
+    audioPlaying = false;
+    clearAudioUiTimer();
+    updateAudioPlaybackUi();
   });
 }
 
@@ -115,6 +243,11 @@ async function init() {
   candidateLabel = null;
   candidateSinceMs = 0;
   stableClassEl.textContent = stableLabel;
+  sequenceIndex = 0;
+  waitingForPose = true;
+  audioPlaying = false;
+  if (poseTimeoutId) clearTimeout(poseTimeoutId);
+  renderNextExpectedPose();
 
   // Start loop
   rafId = window.requestAnimationFrame(loop);
@@ -122,6 +255,10 @@ async function init() {
 
 function stop() {
   running = false;
+  audioPlaying = false;
+  waitingForPose = false;
+  clearAudioUiTimer();
+  updateAudioPlaybackUi();
 
   startBtn.disabled = false;
   stopBtn.disabled = true;
@@ -142,6 +279,7 @@ function stop() {
 
   liveClassEl.textContent = "—";
   liveConfEl.textContent = "—";
+  renderNextExpectedPose();
 }
 
 async function loop() {
@@ -196,25 +334,40 @@ function getTopPrediction(predictionArr) {
 function updateStableClass(className, prob, nowMs) {
   const valid = prob >= PROB_THRESHOLD;
 
-  if (!valid) {
-    // Don’t advance candidate timer when confidence is low
+  // Nur die erwartete Pose in der Sequenz zählt
+  const expectedPose = POSE_SEQUENCE[sequenceIndex];
+
+  if (!valid || !audioPlaying && !waitingForPose) {
     candidateLabel = null;
     candidateSinceMs = 0;
     return;
   }
 
   if (candidateLabel !== className) {
-    // New candidate starts now
     candidateLabel = className;
     candidateSinceMs = nowMs;
     return;
   }
 
   const heldForMs = nowMs - candidateSinceMs;
-  if (heldForMs >= STABLE_SECONDS * 1000 && stableLabel !== className) {
+  // Während Audio läuft, keine Pose-Wechsel
+  if (audioPlaying) return;
+
+  // Nach Audio: Nur die richtige Pose zählt
+  if (waitingForPose && className === expectedPose && heldForMs >= getStableSeconds() * 1000) {
     stableLabel = className;
     stableClassEl.textContent = stableLabel;
-    playAudioForClass(stableLabel);
+    waitingForPose = false;
+    if (poseTimeoutId) clearTimeout(poseTimeoutId);
+    // Nächste Audio in Sequenz
+    sequenceIndex++;
+    renderNextExpectedPose();
+    if (sequenceIndex < POSE_SEQUENCE.length) {
+      playAudioForClass(POSE_SEQUENCE[sequenceIndex]);
+    } else {
+      // Sequenz beendet, zurücksetzen
+      resetSequence();
+    }
   }
 }
 

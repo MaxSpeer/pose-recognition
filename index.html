@@ -40,8 +40,34 @@
           </div>
 
           <div class="resultRow">
+            <div class="label">Next expected pose</div>
+            <div id="nextPose" class="value">—</div>
+          </div>
+
+          <div class="resultRow">
+            <div class="label">Current audio file</div>
+            <div id="currentAudio" class="value small">—</div>
+          </div>
+
+          <div class="resultRow">
+            <div class="label">Audio remaining</div>
+            <div id="audioRemaining" class="value">—</div>
+          </div>
+
+          <div class="resultRow">
             <div class="label">Stable rule</div>
             <div id="stableRule" class="value small"></div>
+          </div>
+
+          <div class="resultRow">
+            <div class="label">Tempo</div>
+            <div class="value small">
+              <button id="speedSlowBtn" type="button">Langsam</button>
+              <button id="speedNormalBtn" type="button">Normal</button>
+              <button id="speedFastBtn" type="button">Schnell</button>
+              <button id="speedSuperFastBtn" type="button">Super schnell</button>
+              <span id="speedStatus">1.0x</span>
+            </div>
           </div>
 
           <hr />
